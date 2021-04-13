@@ -1,0 +1,36 @@
+# workflow 名字
+name: BINANCE_TIXIAN
+
+# 触发设置
+on:
+  repository_dispatch:
+  # release:
+  #   types: published
+  # push:
+  #   branches:
+  #     - master
+  schedule:
+    - cron: 0 20 * * *
+  watch:
+    types: started
+
+env:
+  SECRETKEY: ${{secrets.SECRETKEY}}
+  APIKEY: ${{secrets.APIKEY}}
+  HOST: ${{secrets.HOST}}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codes
+        uses: actions/checkout@v2
+
+      - name: Use Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: "12.x"
+
+      - name: Run Script
+        run: node index.js
