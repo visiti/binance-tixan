@@ -32,5 +32,8 @@ jobs:
         with:
           node-version: "12.x"
 
+      - name: Run install
+        run: npm install
+
       - name: Run Script
         run: node index.js
