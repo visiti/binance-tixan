@@ -70,6 +70,7 @@ async function tixian() {
             startTime: lastTime,
             symbol: 'ETHUSD_PERP'
         })
+        if(total <= 0){ return }
         transfer(total / 10)
     } catch (error) {
         console.log(err)
