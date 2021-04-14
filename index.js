@@ -7,6 +7,7 @@ const SECRETKEY = process.env.SECRETKEY;
 const APIKEY = process.env.APIKEY;
 const HOST = process.env.HOST;
 
+
 axios.defaults.headers['X-MBX-APIKEY'] = APIKEY;
 
 axios.interceptors.request.use((config) => {
@@ -23,21 +24,33 @@ axios.interceptors.request.use((config) => {
     return config;
 })
 
-function getTotal(payload) {
+function getTotal(payload, asset) {
     return axios
-        .get(`https://dapi.${HOST}/dapi/v1/income`, {
+        .get(`https://www.${HOST}/dapi/v1/income`, {
             params: payload
         })
         .then(({ data }) => {
             return data.reduce((t, d) => {
-                if ((d.incomeType === "REALIZED_PNL" || d.incomeType === 'COMMISSION') && d.asset == "ETH") {
+                if ((d.incomeType === "REALIZED_PNL" || d.incomeType === 'COMMISSION') && d.income > 0 && d.asset == asset) {
                     t += Number(d.income);
                 }
-                return t
+                return t / 10
             }, 0)
         });
 }
-function transferHistory() {
+
+function balance(asset) {
+    return axios.get('https://www.${HOST}/dapi/v1/balance').then(({ data }) => {
+        for (const item of data) {
+            if (item.availableBalance === asset) {
+                return item.availableBalance;
+            }
+        }
+        return 0;
+    })
+}
+
+function transferHistory(asset) {
     return axios.get(`https://api.${HOST}/sapi/v1/asset/transfer`, {
         params: {
             type: 'CMFUTURE_MAIN',
@@ -45,7 +58,7 @@ function transferHistory() {
     }).then(({ data }) => {
         let lastTime = Date.now() - 1000 * 60 * 60 * 24;
         for (let row of data.rows) {
-            if (row.asset === 'ETH' && row.status === 'CONFIRMED') {
+            if (row.asset === asset && row.status === 'CONFIRMED') {
                 lastTime = row.timestamp + 1;
                 break;
             }
@@ -53,6 +66,7 @@ function transferHistory() {
         return lastTime;
     })
 }
+
 function transfer(amount = 0) {
     return axios.post(`https://api.${HOST}/sapi/v1/asset/transfer`, null, {
         params: {
@@ -63,17 +77,24 @@ function transfer(amount = 0) {
     })
 }
 
-async function tixian() {
+async function tixian(asset = 'ETH') {
     try {
-        let lastTime = await transferHistory();
+        // 获取上次提现时间
+        let lastTime = await transferHistory(asset);
+        // 获取本次需要提现数
         let total = await getTotal({
             startTime: lastTime,
-            symbol: 'ETHUSD_PERP'
-        })
-        if(total <= 0){ return }
-        transfer(total / 10)
+            symbol: asset + 'USD_PERP'
+        }, asset)
+        // 判断提现数是否小于等于零 && 提现金额是否小于可提现额 是的话 不进行提现
+        if (total <= 0) { return }
+        let availableBalance = await balance(asset);
+        if (total < availableBalance) {
+            return
+        }
+        transfer(total)
     } catch (error) {
-        console.log(err)
+        console.log(error)
     }
 
 }
